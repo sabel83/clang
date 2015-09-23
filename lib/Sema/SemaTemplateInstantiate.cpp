@@ -23,6 +23,7 @@
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
+#include "clang/Sema/TemplateInstCallbacks.h"
 
 using namespace clang;
 using namespace sema;
@@ -182,24 +183,6 @@ Sema::getTemplateInstantiationArgs(NamedDecl *D,
   return Result;
 }
 
-bool Sema::ActiveTemplateInstantiation::isInstantiationRecord() const {
-  switch (Kind) {
-  case TemplateInstantiation:
-  case ExceptionSpecInstantiation:
-  case DefaultTemplateArgumentInstantiation:
-  case DefaultFunctionArgumentInstantiation:
-  case ExplicitTemplateArgumentSubstitution:
-  case DeducedTemplateArgumentSubstitution:
-  case PriorTemplateArgumentSubstitution:
-    return true;
-
-  case DefaultTemplateArgumentChecking:
-    return false;
-  }
-
-  llvm_unreachable("Invalid InstantiationKind!");
-}
-
 Sema::InstantiatingTemplate::InstantiatingTemplate(
     Sema &SemaRef, ActiveTemplateInstantiation::InstantiationKind Kind,
     SourceLocation PointOfInstantiation, SourceRange InstantiationRange,
@@ -226,6 +209,8 @@ Sema::InstantiatingTemplate::InstantiatingTemplate(
     Inst.InstantiationRange = InstantiationRange;
     SemaRef.InNonInstantiationSFINAEContext = false;
     SemaRef.ActiveTemplateInstantiations.push_back(Inst);
+    if (SemaRef.TemplateInstCallbacksChain)
+      SemaRef.TemplateInstCallbacksChain->atTemplateBegin(SemaRef, Inst);
     if (!Inst.isInstantiationRecord())
       ++SemaRef.NonInstantiationEntries;
   }
@@ -343,6 +328,10 @@ void Sema::InstantiatingTemplate::Clear() {
         SemaRef.LookupModulesCache.erase(M);
       SemaRef.ActiveTemplateInstantiationLookupModules.pop_back();
     }
+
+    if (SemaRef.TemplateInstCallbacksChain)
+      SemaRef.TemplateInstCallbacksChain->atTemplateEnd(
+        SemaRef, SemaRef.ActiveTemplateInstantiations.back());
 
     SemaRef.ActiveTemplateInstantiations.pop_back();
     Invalid = true;
@@ -559,6 +548,9 @@ void Sema::PrintInstantiationStack() {
         << cast<FunctionDecl>(Active->Entity)
         << Active->InstantiationRange;
       break;
+
+    case ActiveTemplateInstantiation::Memoization:
+      break;
     }
   }
 }
@@ -599,6 +591,9 @@ Optional<TemplateDeductionInfo *> Sema::isSFINAEContext() const {
       // or deduced template arguments, so SFINAE applies.
       assert(Active->DeductionInfo && "Missing deduction info pointer");
       return Active->DeductionInfo;
+
+    case ActiveTemplateInstantiation::Memoization:
+      break;
     }
   }
 
