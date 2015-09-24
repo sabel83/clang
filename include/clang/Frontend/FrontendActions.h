@@ -162,6 +162,8 @@ class TemplightDumpAction : public ASTFrontendAction {
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  StringRef InFile) override;
+
+  void ExecuteAction() override;
 };
 
 /**

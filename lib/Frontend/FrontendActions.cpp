@@ -20,6 +20,8 @@
 #include "clang/Lex/Pragma.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/Parser.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Sema/TemplateInstCallbacks.h"
 #include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTWriter.h"
 #include "llvm/Support/FileSystem.h"
@@ -434,9 +436,27 @@ void VerifyPCHAction::ExecuteAction() {
                   ASTReader::ARR_ConfigurationMismatch);
 }
 
+namespace {
+  class DefaultTemplateInstCallbacks : public TemplateInstantiationCallbacks {
+  protected:
+    virtual void atTemplateBeginImpl(const Sema &TheSema,
+      const ActiveTemplateInstantiation &Inst)
+    {
+    }
+  };
+}
+
 std::unique_ptr<ASTConsumer>
 TemplightDumpAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   return llvm::make_unique<ASTConsumer>();
+}
+
+void TemplightDumpAction::ExecuteAction() {
+  CompilerInstance &CI = getCompilerInstance();
+
+  TemplateInstantiationCallbacks::appendNewCallbacks(
+    CI.getSema().TemplateInstCallbacksChain,
+    new DefaultTemplateInstCallbacks());
 }
 
 namespace {
