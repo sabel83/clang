@@ -458,6 +458,10 @@ TemplightDumpAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 void TemplightDumpAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
 
+  // This part is normally done by ASTFrontEndAction, but needs to happen
+  //  before Templight observers can be created ----------------------->>
+  // FIXME: Move the truncation aspect of this into Sema, we delayed this till
+  // here so the source manager would be initialized.
   if (hasCodeCompletionSupport() &&
       !CI.getFrontendOpts().CodeCompletionAt.FileName.empty())
     CI.createCodeCompletionConsumer();
@@ -469,6 +473,7 @@ void TemplightDumpAction::ExecuteAction() {
 
   if (!CI.hasSema())
     CI.createSema(getTranslationUnitKind(), CompletionConsumer);
+  //<<--------------------------------------------------------------
 
   TemplateInstantiationCallbacks::appendNewCallbacks(
     CI.getSema().TemplateInstCallbacksChain,
