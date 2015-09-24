@@ -440,7 +440,11 @@ namespace {
   class DefaultTemplateInstCallbacks : public TemplateInstantiationCallbacks {
   protected:
     virtual void atTemplateBeginImpl(const Sema &TheSema,
-      const ActiveTemplateInstantiation &Inst)
+      const ActiveTemplateInstantiation &Inst) override
+    {
+    }
+    virtual void atTemplateEndImpl(const Sema &TheSema,
+      const ActiveTemplateInstantiation &Inst) override
     {
     }
   };
@@ -454,9 +458,22 @@ TemplightDumpAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 void TemplightDumpAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
 
+  if (hasCodeCompletionSupport() &&
+      !CI.getFrontendOpts().CodeCompletionAt.FileName.empty())
+    CI.createCodeCompletionConsumer();
+
+  // Use a code completion consumer?
+  CodeCompleteConsumer *CompletionConsumer = nullptr;
+  if (CI.hasCodeCompletionConsumer())
+    CompletionConsumer = &CI.getCodeCompletionConsumer();
+
+  if (!CI.hasSema())
+    CI.createSema(getTranslationUnitKind(), CompletionConsumer);
+
   TemplateInstantiationCallbacks::appendNewCallbacks(
     CI.getSema().TemplateInstCallbacksChain,
     new DefaultTemplateInstCallbacks());
+  ASTFrontendAction::ExecuteAction();
 }
 
 namespace {
