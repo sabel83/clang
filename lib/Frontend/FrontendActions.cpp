@@ -434,6 +434,11 @@ void VerifyPCHAction::ExecuteAction() {
                   ASTReader::ARR_ConfigurationMismatch);
 }
 
+std::unique_ptr<ASTConsumer>
+TemplightDumpAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
+  return llvm::make_unique<ASTConsumer>();
+}
+
 namespace {
   /// \brief AST reader listener that dumps module information for a module
   /// file.
